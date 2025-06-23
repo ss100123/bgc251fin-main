@@ -1,66 +1,57 @@
-let nodeArray = [];
-let linkArray = [];
+const { Responsive } = P5Template;
 
-const gridCount = 20; // 40은 너무 커서 성능 저하 → 20 추천
+let node = [];
+let link = [];
+
+const grd = 20;
 const friction = 0.99;
-const forceMultiplier = 0.2;
+const motion = 0.2;
 const speedLimit = 5;
 
 function setup() {
-  const container = document.getElementById('canvas-container');
-  const w = container.clientWidth;
-  const h = container.clientHeight;
-  const cnv = createCanvas(w, h);
-  cnv.parent(container);
-
-  nodeArray = createNodes();
-  linkArray = createLinks(nodeArray);
-}
-
-function windowResized() {
-  const container = document.getElementById('canvas-container');
-  resizeCanvas(container.clientWidth, container.clientHeight);
+  new Responsive().createResponsiveCanvas(400, 300, 'fill', false);
+  node = mnode();
+  link = linkp(node);
 }
 
 function draw() {
-  background(255);
+  background('#000');
 
   if (mouseIsPressed) {
-    const cursor = createVector(mouseX, mouseY);
-    const range = 80;
-    const pullStrength = 50;
-
-    nodeArray.forEach((n) => {
-      if (!n.pinned) {
-        const d = p5.Vector.dist(n.pos, cursor);
+    let cur = createVector(mouseX, mouseY);
+    let range = 80;
+    let pull = 50;
+    for (let i = 0; i < node.length; i++) {
+      let n = node[i];
+      if (!n.jum) {
+        let d = p5.Vector.dist(n.pos, cur);
         if (d < range) {
-          const dir = p5.Vector.sub(cursor, n.pos);
-          dir.setMag((range - d) * pullStrength * 0.05);
+          let dir = p5.Vector.sub(cur, n.pos);
+          dir.setMag((range - d) * pull * 0.05);
           n.force.add(dir);
         }
       }
-    });
+    }
   }
 
-  linkArray.forEach((l) => l.update());
-  nodeArray.forEach((n) => n.update());
+  for (let i = 0; i < link.length; i++) link[i].update();
+  for (let i = 0; i < node.length; i++) node[i].update();
 
-  linkArray.forEach((l) => l.show());
-  nodeArray.forEach((n) => n.show());
+  for (let i = 0; i < link.length; i++) link[i].show();
+  for (let i = 0; i < node.length; i++) node[i].show();
 }
 
 class Node {
-  constructor(x, y, pinned) {
+  constructor(x, y, jum) {
     this.pos = createVector(x, y);
     this.vel = createVector(0, 0);
     this.force = createVector(0, 0);
-    this.pinned = pinned;
+    this.jum = jum;
   }
 
   update() {
-    if (this.pinned) return;
-
-    const acc = this.force.copy().mult(forceMultiplier);
+    if (this.jum) return;
+    let acc = this.force.copy().mult(motion);
     this.vel.add(acc);
     this.vel.limit(speedLimit);
     this.pos.add(this.vel);
@@ -69,7 +60,7 @@ class Node {
   }
 
   show() {
-    stroke(0);
+    stroke(255);
     strokeWeight(2);
     point(this.pos.x, this.pos.y);
   }
@@ -79,50 +70,50 @@ class Link {
   constructor(a, b) {
     this.a = a;
     this.b = b;
-    this.restLength = p5.Vector.dist(a.pos, b.pos);
+    this.rest = p5.Vector.dist(a.pos, b.pos);
   }
 
   update() {
-    const dir = p5.Vector.sub(this.b.pos, this.a.pos);
-    const dist = dir.mag();
-    const stretch = dist - this.restLength;
+    let dir = p5.Vector.sub(this.b.pos, this.a.pos);
+    let dist = dir.mag();
+    let stretch = dist - this.rest;
     dir.normalize().mult(0.5 * stretch);
 
-    if (!this.a.pinned) this.a.force.add(dir);
-    if (!this.b.pinned) this.b.force.sub(dir);
+    if (!this.a.jum) this.a.force.add(dir);
+    if (!this.b.jum) this.b.force.sub(dir);
   }
 
   show() {
-    stroke(50);
+    stroke(255, 100);
     strokeWeight(1);
     line(this.a.pos.x, this.a.pos.y, this.b.pos.x, this.b.pos.y);
   }
 }
 
-function createNodes() {
-  const nodes = [];
-  for (let y = 0; y <= gridCount; y++) {
-    for (let x = 0; x <= gridCount; x++) {
-      const px = map(x, 0, gridCount, 0, width);
-      const py = map(y, 0, gridCount, 0, height);
-      const pinned = x === 0 || y === 0 || x === gridCount || y === gridCount;
-      nodes.push(new Node(px, py, pinned));
+function mnode() {
+  let arr = [];
+  for (let y = 0; y <= grd; y++) {
+    for (let x = 0; x <= grd; x++) {
+      let px = map(x, 0, grd, 0, width);
+      let py = map(y, 0, grd, 0, height);
+      let jum = x == 0 || y == 0 || x == grd || y == grd;
+      arr.push(new Node(px, py, jum));
     }
   }
-  return nodes;
+  return arr;
 }
 
-function createLinks(nodes) {
-  const links = [];
-  const getIndex = (x, y) => y * (gridCount + 1) + x;
-  for (let y = 0; y < gridCount; y++) {
-    for (let x = 0; x < gridCount; x++) {
-      const i = getIndex(x, y);
-      const right = getIndex(x + 1, y);
-      const down = getIndex(x, y + 1);
-      links.push(new Link(nodes[i], nodes[right]));
-      links.push(new Link(nodes[i], nodes[down]));
+function linkp(node) {
+  let arr = [];
+  let idx = (x, y) => y * (grd + 1) + x;
+  for (let y = 0; y < grd; y++) {
+    for (let x = 0; x < grd; x++) {
+      let i = idx(x, y);
+      let right = idx(x + 1, y);
+      let down = idx(x, y + 1);
+      arr.push(new Link(node[i], node[right]));
+      arr.push(new Link(node[i], node[down]));
     }
   }
-  return links;
+  return arr;
 }
